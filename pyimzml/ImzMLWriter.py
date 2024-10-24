@@ -1,3 +1,11 @@
+# TODO: Add a variable to the writer class that allows for saving scan/spectrum groups as referenceable param groups to avoid redundancy.
+# TODO: Ensure the scan/spectrum groups are properly referenced in scans/spectra.
+# TODO: Add support for MSn scans, including a precursorList containing isolation window and selected ion. For now, hardcode at one window/selected ion.
+# TODO: Add support for sourceFileList field containing file names, location, and format
+# TODO: add support for ion activation information
+# TODO: add support for correct labelling of other scan types such as MRM.
+
+
 from __future__ import print_function
 
 import os
@@ -13,7 +21,7 @@ from wheezy.template import Engine, CoreExtension, DictLoader
 from pyimzml.compression import NoCompression, ZlibCompression
 
 IMZML_TEMPLATE = """\
-@require(uuid, sha1sum, mz_data_type, int_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction)
+@require(uuid, sha1sum, mz_data_type, int_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y)
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <mzML xmlns="http://psi.hupo.org/ms/mzml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://psi.hupo.org/ms/mzml http://psidev.info/files/ms/mzML/xsd/mzML1.1.0_idx.xsd" version="1.1">
   <cvList count="2">
@@ -22,7 +30,13 @@ IMZML_TEMPLATE = """\
   </cvList>
   <fileDescription>
     <fileContent>
+      @for level in ms_levels:
+      @if level==1:
       <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
+      @else:
+      <cvParam cvRef="MS" accession="MS:1000579" name="MSn spectrum" value=""/>
+      @end
+      @end
       @if spec_type=='centroid':
       <cvParam cvRef="MS" accession="MS:1000127" name="centroid spectrum" value=""/>
       @elif spec_type=='profile':
@@ -48,11 +62,8 @@ IMZML_TEMPLATE = """\
     </referenceableParamGroup>
     <referenceableParamGroup id="scan1">
       <cvParam cvRef="MS" accession="MS:1000093" name="increasing m/z scan"/>
-      <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value=""/>
     </referenceableParamGroup>
     <referenceableParamGroup id="spectrum1">
-      <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
-      <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="0"/>
       @if spec_type=='centroid':
       <cvParam cvRef="MS" accession="MS:1000127" name="centroid spectrum" value=""/>
       @elif spec_type=='profile':
@@ -76,8 +87,16 @@ IMZML_TEMPLATE = """\
       <cvParam cvRef="IMS" accession="IMS:@obo_codes[scan_pattern]" name="@obo_names[scan_pattern]"/>
       <cvParam cvRef="IMS" accession="IMS:@obo_codes[scan_type]" name="@obo_names[scan_type]"/>
       <cvParam cvRef="IMS" accession="IMS:@obo_codes[line_scan_direction]" name="@obo_names[line_scan_direction]"/>
-      <cvParam cvRef="IMS" accession="IMS:1000042" name="max count of pixels x" value="@{(max(s.coords[0] for s in spectra))!!s}"/>
-      <cvParam cvRef="IMS" accession="IMS:1000043" name="max count of pixels y" value="@{(max(s.coords[1] for s in spectra))!!s}"/>
+      <cvParam cvRef="IMS" accession="IMS:1000042" name="max count of pixels x" value="@{str(max(s["coords"][0] for s in spectra))!!s}"/>
+      <cvParam cvRef="IMS" accession="IMS:1000043" name="max count of pixels y" value="@{str(max(s["coords"][1] for s in spectra))!!s}"/>
+      @if image_x_dimension is not None:
+      <cvParam cvRef="IMS" accession="IMS:1000044" name="max dimension x" value="@{str(image_x_dimension)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000046" name="pixel size x" value="@{str(pixel_size_x)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      @end
+      @if image_y_dimension is not None:
+      <cvParam cvRef="IMS" accession="IMS:1000045" name="max dimension y" value="@{str(image_y_dimension)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000047" name="pixel size y" value="@{str(pixel_size_y)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      @end
     </scanSettings>
   </scanSettingsList>
   <instrumentConfigurationList count="1">
@@ -96,40 +115,83 @@ IMZML_TEMPLATE = """\
       @for index, s in enumerate(spectra):
       <spectrum defaultArrayLength="0" id="spectrum=@{(index+1)!!s}" index="@{(index+1)!!s}">
         <referenceableParamGroupRef ref="spectrum1"/>
-        <cvParam cvRef="MS" accession="MS:1000528" name="lowest observed m/z" value="@{s.mz_min!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
-        <cvParam cvRef="MS" accession="MS:1000527" name="highest observed m/z" value="@{s.mz_max!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
-        <cvParam cvRef="MS" accession="MS:1000504" name="base peak m/z" value="@{s.mz_base!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
-        <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s.int_base!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
-        <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s.int_tic!!s}"/>
+        @if s["ms_level"]==1:
+        <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
+        <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="1"/>
+        @elif s["ms_level"]!=1:
+        <cvParam cvRef="MS" accession="MS:1000579" name="MSn spectrum" value=""/>
+        <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="@{s["ms_level"]!!s}"/>
+        @end
+        <cvParam cvRef="MS" accession="MS:1000528" name="lowest observed m/z" value="@{s["mz_min"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+        <cvParam cvRef="MS" accession="MS:1000527" name="highest observed m/z" value="@{s["mz_max"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+        <cvParam cvRef="MS" accession="MS:1000504" name="base peak m/z" value="@{s["mz_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+        <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s["int_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
+        <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s["int_tic"]!!s}"/>
         <scanList count="1">
           <cvParam accession="MS:1000795" cvRef="MS" name="no combination"/>
           <scan instrumentConfigurationRef="instrumentConfiguration0">
             <referenceableParamGroupRef ref="scan1"/>
-            <cvParam accession="IMS:1000050" cvRef="IMS" name="position x" value="@{s.coords[0]!!s}"/>
-            <cvParam accession="IMS:1000051" cvRef="IMS" name="position y" value="@{s.coords[1]!!s}"/>
-            @if len(s.coords) == 3:
-            <cvParam accession="IMS:1000052" cvRef="IMS" name="position z" value="@{s.coords[2]!!s}"/>
+            <cvParam cvRef="MS" accession="IMS:1000016" name="scan start time" value="@{s["scan_start_time"]!!s}", unitCvRef="unit.ontology" unitAccession="UO:000031" unitName="minute"/>
+            @if s.get("filter_string"):
+            <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value="@{s["filter_string"]!!s}"/>
+            @else:
+            <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value=""/>
             @end
-            @if s.userParams:
-                @for up in s.userParams:
+            <cvParam accession="IMS:1000050" cvRef="IMS" name="position x" value="@{s["coords"][0]!!s}"/>
+            <cvParam accession="IMS:1000051" cvRef="IMS" name="position y" value="@{s["coords"][1]!!s}"/>
+            @if len(s["coords"]) == 3:
+            <cvParam accession="IMS:1000052" cvRef="IMS" name="position z" value="@{s["coords"][2]!!s}"/>
+            @end
+            @if s["userParams"]:
+                @for up in s["userParams"]:
                 <userParam name="@up['name']" value="@up['value']"/> 
                 @end
             @end
           </scan>
         </scanList>
+        @if s["ms_level"]>1:
+        <precursorList count="1">
+          <precursor>
+            <isolationWindow>
+              <cvParam cvRef="MS" accession="MS:1000827" name="isolation window target m/z" value="@{s["precursor_mz"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @if s["isolation_window_lower_offset"] is not None:
+              <cvParam cvRef="MS" accession="MS:1000828" name="isolation window lower offset" value="@{s["isolation_window_lower_offset"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @else:
+              <cvParam cvRef="MS" accession="MS:1000828" name="isolation window lower offset" value="0.5" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @end
+              @if s["isolation_window_upper_offset"] is not None:
+              <cvParam cvRef="MS" accession="MS:1000829" name="isolation window upper offset" value="@{s["isolation_window_upper_offset"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @else:
+              <cvParam cvRef="MS" accession="MS:1000829" name="isolation window upper offset" value="0.5" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @end
+            </isolationWindow>
+            <selectedIonList count="1">
+              <selectedIon>
+                <cvParam cvRef="MS" accession="MS:1000744" name="selected ion m/z" value="@{s["precursor_mz"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              </selectedIon>
+            </selectedIonList>
+            @if s.get("activation") is not None:
+            <activation>
+              <cvParam cvRef="MS" accession="MS:1000422" name="beam-type collision-induced dissociation" value=""/>
+              <cvParam cvRef="MS" accession="MS:1000045" name="collision energy" value="35.0" unitCvRef="unit.ontology" unitAccession="UO:0000266" unitName="electronvolt"/>
+            </activation>
+            @end
+          </precursor>
+        </precursorList>
+        @end
         <binaryDataArrayList count="2">
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="mzArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s.mz_len!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s.mz_enc_len!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s.mz_offset!!s}"/>
+            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["mz_len"]!!s}"/>
+            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["mz_enc_len"]!!s}"/>
+            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["mz_offset"]!!s}"/>
             <binary/>
           </binaryDataArray>
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="intensityArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s.int_len!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s.int_enc_len!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s.int_offset!!s}"/>
+            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["int_len"]!!s}"/>
+            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["int_enc_len"]!!s}"/>
+            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["int_offset"]!!s}"/>
             <binary/>
           </binaryDataArray>
         </binaryDataArrayList>
@@ -141,7 +203,7 @@ IMZML_TEMPLATE = """\
 """
 
 IMZML_MOBILITY_TEMPLATE = """\
-@require(uuid, sha1sum, mz_data_type, int_data_type, mob_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, mob_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction)
+@require(uuid, sha1sum, mz_data_type, int_data_type, mob_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, mob_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y, mobility_accession, mobility_unit, mobility_unit_accession)
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <mzML xmlns="http://psi.hupo.org/ms/mzml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://psi.hupo.org/ms/mzml http://psidev.info/files/ms/mzML/xsd/mzML1.1.0_idx.xsd" version="1.1">
   <cvList count="2">
@@ -151,7 +213,13 @@ IMZML_MOBILITY_TEMPLATE = """\
 
   <fileDescription>
     <fileContent>
+      @for level in ms_levels:
+      @if level==1:
       <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
+      @else:
+      <cvParam cvRef="MS" accession="MS:1000579" name="MSn spectrum" value=""/>
+      @end
+      @end
       @if spec_type=='centroid':
       <cvParam cvRef="MS" accession="MS:1000127" name="centroid spectrum" value=""/>
       @elif spec_type=='profile':
@@ -163,7 +231,7 @@ IMZML_MOBILITY_TEMPLATE = """\
     </fileContent>
   </fileDescription>
 
-  <referenceableParamGroupList count="4">
+  <referenceableParamGroupList count="5">
     <referenceableParamGroup id="mzArray">
       <cvParam cvRef="MS" accession="MS:@obo_codes[mz_compression]" name="@mz_compression" value=""/>
       <cvParam cvRef="MS" accession="MS:1000514" name="m/z array" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
@@ -178,17 +246,14 @@ IMZML_MOBILITY_TEMPLATE = """\
     </referenceableParamGroup>
     <referenceableParamGroup id="mobilityArray">
       <cvParam cvRef="MS" accession="MS:@obo_codes[mob_compression]" name="@mob_compression" value=""/>
-      <cvParam cvRef="MS" accession="MS:1003006" name="mean inverse reduced ion mobility array" unitCvRef="MS" unitAccession="MS:1002814" unitName="volt-second per square centimeter"/>
+      <cvParam cvRef="MS" accession="@{str(mobility_accession)!!s}" name="mean inverse reduced ion mobility array" unitCvRef="MS" unitAccession="@{str(mobility_unit_accession)!!s}" unitName="@{str(mobility_unit)!!s}"/>
       <cvParam cvRef="MS" accession="MS:@obo_codes[mob_data_type]" name="@mob_data_type" value=""/>
       <cvParam cvRef="IMS" accession="IMS:1000101" name="external data" value="true"/>
     </referenceableParamGroup>
     <referenceableParamGroup id="scan1">
       <cvParam cvRef="MS" accession="MS:1000093" name="increasing m/z scan"/>
-      <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value=""/>
     </referenceableParamGroup>
     <referenceableParamGroup id="spectrum1">
-      <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
-      <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="0"/>
       @if spec_type=='centroid':
       <cvParam cvRef="MS" accession="MS:1000127" name="centroid spectrum" value=""/>
       @elif spec_type=='profile':
@@ -214,8 +279,16 @@ IMZML_MOBILITY_TEMPLATE = """\
       <cvParam cvRef="IMS" accession="IMS:@obo_codes[scan_pattern]" name="@obo_names[scan_pattern]"/>
       <cvParam cvRef="IMS" accession="IMS:@obo_codes[scan_type]" name="@obo_names[scan_type]"/>
       <cvParam cvRef="IMS" accession="IMS:@obo_codes[line_scan_direction]" name="@obo_names[line_scan_direction]"/>
-      <cvParam cvRef="IMS" accession="IMS:1000042" name="max count of pixels x" value="@{(max(s.coords[0] for s in spectra))!!s}"/>
-      <cvParam cvRef="IMS" accession="IMS:1000043" name="max count of pixels y" value="@{(max(s.coords[1] for s in spectra))!!s}"/>
+      <cvParam cvRef="IMS" accession="IMS:1000042" name="max count of pixels x" value="@{str(max(s["coords"][0] for s in spectra))!!s}"/>
+      <cvParam cvRef="IMS" accession="IMS:1000043" name="max count of pixels y" value="@{str(max(s["coords"][1] for s in spectra))!!s}"/>
+      @if image_x_dimension is not None:
+      <cvParam cvRef="IMS" accession="IMS:1000044" name="max dimension x" value="@{str(image_x_dimension)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000046" name="pixel size x" value="@{str(pixel_size_x)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      @end
+      @if image_y_dimension is not None:
+      <cvParam cvRef="IMS" accession="IMS:1000045" name="max dimension y" value="@{str(image_y_dimension)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000047" name="pixel size y" value="@{str(pixel_size_y)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      @end
     </scanSettings>
   </scanSettingsList>
 
@@ -237,47 +310,92 @@ IMZML_MOBILITY_TEMPLATE = """\
       @for index, s in enumerate(spectra):
       <spectrum defaultArrayLength="0" id="spectrum=@{(index+1)!!s}" index="@{(index+1)!!s}">
         <referenceableParamGroupRef ref="spectrum1"/>
-        <cvParam cvRef="MS" accession="MS:1000528" name="lowest observed m/z" value="@{s.mz_min!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
-        <cvParam cvRef="MS" accession="MS:1000527" name="highest observed m/z" value="@{s.mz_max!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
-        <cvParam cvRef="MS" accession="MS:1000504" name="base peak m/z" value="@{s.mz_base!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
-        <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s.int_base!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
-        <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s.int_tic!!s}"/>
+        @if s["ms_level"]==1:
+        <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
+        <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="1"/>
+        @elif s["ms_level"]!=1:
+        <cvParam cvRef="MS" accession="MS:1000579" name="MSn spectrum" value=""/>
+        <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="@{s["ms_level"]!!s}"/>
+        @end
+        <cvParam cvRef="MS" accession="MS:1000528" name="lowest observed m/z" value="@{s["mz_min"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+        <cvParam cvRef="MS" accession="MS:1000527" name="highest observed m/z" value="@{s["mz_max"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+        <cvParam cvRef="MS" accession="MS:1000504" name="base peak m/z" value="@{s["mz_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+        <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s["int_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
+        <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s["int_tic"]!!s}"/>
         <scanList count="1">
+            <cvParam cvRef="MS" accession="IMS:1000016" name="scan start time" value="@{s["scan_start_time"]!!s}", unitCvRef="unit.ontology" unitAccession="UO:000031" unitName="minute"/>
+            @if s.get("filter_string"):
+            <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value="@{s["filter_string"]!!s}"/>
+            @else:
+            <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value=""/>
+            @end
           <cvParam accession="MS:1000795" cvRef="MS" name="no combination"/>
           <scan instrumentConfigurationRef="instrumentConfiguration0">
             <referenceableParamGroupRef ref="scan1"/>
-            <cvParam accession="IMS:1000050" cvRef="IMS" name="position x" value="@{s.coords[0]!!s}"/>
-            <cvParam accession="IMS:1000051" cvRef="IMS" name="position y" value="@{s.coords[1]!!s}"/>
-            @if len(s.coords) == 3:
-            <cvParam accession="IMS:1000052" cvRef="IMS" name="position z" value="@{s.coords[2]!!s}"/>
+            <cvParam accession="IMS:1000050" cvRef="IMS" name="position x" value="@{s["coords"][0]!!s}"/>
+            <cvParam accession="IMS:1000051" cvRef="IMS" name="position y" value="@{s["coords"][1]!!s}"/>
+            @if len(s["coords"]) == 3:
+            <cvParam accession="IMS:1000052" cvRef="IMS" name="position z" value="@{s["coords"][2]!!s}"/>
             @end
-            @if s.userParams:
-                @for up in s.userParams:
+            @if s["userParams"]:
+                @for up in s["userParams"]:
                 <userParam name="@up['name']" value="@up['value']"/> 
                 @end
             @end
           </scan>
         </scanList>
+
+        @if s["ms_level"]>1:
+        <precursorList count="1">
+          <precursor>
+            <isolationWindow>
+              <cvParam cvRef="MS" accession="MS:1000827" name="isolation window target m/z" value="@{s["precursor_mz"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @if s["isolation_window_lower_offset"] is not None:
+              <cvParam cvRef="MS" accession="MS:1000828" name="isolation window lower offset" value="@{s["isolation_window_lower_offset"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @else:
+              <cvParam cvRef="MS" accession="MS:1000828" name="isolation window lower offset" value="0.5" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @end
+              @if s["isolation_window_upper_offset"] is not None:
+              <cvParam cvRef="MS" accession="MS:1000829" name="isolation window upper offset" value="@{s["isolation_window_upper_offset"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @else:
+              <cvParam cvRef="MS" accession="MS:1000829" name="isolation window upper offset" value="0.5" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              @end
+            </isolationWindow>
+            <selectedIonList count="1">
+              <selectedIon>
+                <cvParam cvRef="MS" accession="MS:1000744" name="selected ion m/z" value="@{s["precursor_mz"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              </selectedIon>
+            </selectedIonList>
+            @if s.get("activation") is not None:
+            <activation>
+              <cvParam cvRef="MS" accession="MS:1000422" name="beam-type collision-induced dissociation" value=""/>
+              <cvParam cvRef="MS" accession="MS:1000045" name="collision energy" value="35.0" unitCvRef="unit.ontology" unitAccession="UO:0000266" unitName="electronvolt"/>
+            </activation>
+            @end
+          </precursor>
+        </precursorList>
+        @end
+
         <binaryDataArrayList count="3">
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="mzArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s.mz_len!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s.mz_enc_len!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s.mz_offset!!s}"/>
+            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["mz_len"]!!s}"/>
+            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["mz_enc_len"]!!s}"/>
+            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["mz_offset"]!!s}"/>
             <binary/>
           </binaryDataArray>
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="intensityArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s.int_len!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s.int_enc_len!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s.int_offset!!s}"/>
+            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["int_len"]!!s}"/>
+            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["int_enc_len"]!!s}"/>
+            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["int_offset"]!!s}"/>
             <binary/>
           </binaryDataArray>
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="mobilityArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s.mob_len!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s.mob_enc_len!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s.mob_offset!!s}"/>
+            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["mob_len"]!!s}"/>
+            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["mob_enc_len"]!!s}"/>
+            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["mob_offset"]!!s}"/>
             <binary/>
           </binaryDataArray>
         </binaryDataArrayList>
@@ -298,9 +416,9 @@ class _MaxlenDict(OrderedDict):
             self.popitem(0) #pop oldest
         OrderedDict.__setitem__(self, key, value)
 
-_Spectrum = namedtuple('_Spectrum', 'coords mz_len mz_offset mz_enc_len int_len int_offset int_enc_len mz_min mz_max mz_base int_base int_tic userParams') #todo: change named tuple to dict and parse xml template properly (i.e. remove hardcoding so parameters can be optional)
+# _Spectrum = namedtuple('_Spectrum', 'coords mz_len mz_offset mz_enc_len int_len int_offset int_enc_len mz_min mz_max mz_base int_base int_tic userParams') #todo: change named tuple to dict and parse xml template properly (i.e. remove hardcoding so parameters can be optional)
 
-_Spectrum_Mobility = namedtuple('_Spectrum_Mobility', 'coords mz_len mz_offset mz_enc_len int_len int_offset int_enc_len mob_len mob_offset mob_enc_len mz_min mz_max mz_base int_base int_tic userParams') #todo: change named tuple to dict and parse xml template properly (i.e. remove hardcoding so parameters can be optional)
+# _Spectrum_Mobility = namedtuple('_Spectrum_Mobility', 'coords mz_len mz_offset mz_enc_len int_len int_offset int_enc_len mob_len mob_offset mob_enc_len mz_min mz_max mz_base int_base int_tic userParams') #todo: change named tuple to dict and parse xml template properly (i.e. remove hardcoding so parameters can be optional)
 
 class ImzMLWriter(object):
     """
@@ -331,6 +449,13 @@ class ImzMLWriter(object):
             bool: True or False
             Whether imzML schema should include trapped ion mobility spectrometry data. Units/metadata based
             on Bruker TIMS data.
+        :param polarity:
+            str: "positive" or "negative"
+            The polarity of the data. If not specified, the polarity will be left blank.
+        :param image_x_dimension:
+            int: The x dimension of the image in micrometers
+        :param image_y_dimension:
+            int: The y dimension of the image in micrometers
     """
     def __init__(self, output_filename,
                  mz_dtype=np.float64,
@@ -346,19 +471,24 @@ class ImzMLWriter(object):
                  intensity_compression=NoCompression(),
                  mobility_compression=NoCompression(),
                  polarity=None,
-                 include_mobility=False):
+                 include_mobility=False,
+                 mobility_info=None,
+                 image_x_dimension = None,
+                 image_y_dimension = None):
 
         # Whether to include ion mobility data.
         self.include_mobility = include_mobility
 
+        self.ms_levels = []
         self.mz_dtype = mz_dtype
         self.intensity_dtype = intensity_dtype
         self.mobility_dtype = mobility_dtype
+        self.mobility_info = mobility_info
         self.mode = mode
         self.spec_type = spec_type
-        self.mz_compression = mz_compression
-        self.intensity_compression = intensity_compression
-        self.mobility_compression = mobility_compression
+        self.mz_compression = self.compression_string_to_name(mz_compression)
+        self.intensity_compression = self.compression_string_to_name(intensity_compression)
+        self.mobility_compression = self.compression_string_to_name(mobility_compression)
         self.run_id = os.path.splitext(output_filename)[0]
         self.filename = self.run_id + ".imzML"
         self.ibd_filename = self.run_id + ".ibd"
@@ -371,6 +501,10 @@ class ImzMLWriter(object):
         self.scan_pattern = scan_pattern
         self.scan_type = scan_type
         self.line_scan_direction = line_scan_direction
+        self.image_x_dimension = image_x_dimension
+        self.image_y_dimension = image_y_dimension
+        self.pixel_size_x = None
+        self.pixel_size_y = None
 
         self._write_ibd(self.uuid.bytes)
 
@@ -381,6 +515,7 @@ class ImzMLWriter(object):
             self.wheezy_engine = Engine(loader=DictLoader({'imzml': IMZML_MOBILITY_TEMPLATE}),
                                         extensions=[CoreExtension()])
             self.imzml_template = self.wheezy_engine.get_template('imzml')
+        self.spectra_group = []
         self.spectra = []
         self.first_mz = None
         self.hashes = defaultdict(list)  # mz_hash -> list of mz_data (disk location)
@@ -393,6 +528,20 @@ class ImzMLWriter(object):
             return "%s-bit float" % dtype.__name__[5:]
         elif dtype.__name__.startswith('int'):
             return "%s-bit integer" % dtype.__name__[3:]
+        
+    def compression_string_to_name(self, compression_input):
+        if compression_input in [NoCompression(), ZlibCompression()]:
+            compression_output = compression_input
+        elif compression_input is None:
+            compression_output = NoCompression()
+        elif type(compression_input) == str:
+            if compression_input.lower() in ["none", "no compression"]:
+                compression_output = NoCompression()
+            elif compression_input.lower() in ["zlib", "zlib compression"]:
+                compression_output = ZlibCompression()
+        else:
+            raise ValueError('The input for compression must be "None" or "zlib".')
+        return compression_output
 
     def _setPolarity(self, polarity):
         if polarity:
@@ -409,6 +558,7 @@ class ImzMLWriter(object):
         int_data_type = self._np_type_to_name(self.intensity_dtype)
         if self.include_mobility == True:
             mob_data_type = self._np_type_to_name(self.mobility_dtype)
+            mobility_accession, mobility_unit, mobility_unit_accession = self.mobility_info
         obo_codes = {"32-bit integer": "1000519", 
                      "16-bit float": "1000520",
                      "32-bit float": "1000521",
@@ -462,7 +612,25 @@ class ImzMLWriter(object):
         scan_pattern = self.scan_pattern
         scan_type = self.scan_type
         line_scan_direction = self.line_scan_direction
-        
+
+        ms_levels = [s["ms_level"] for s in spectra]
+        self.ms_levels = []
+        for ms_level in ms_levels:
+            if ms_level not in self.ms_levels:
+                self.ms_levels.append(ms_level)
+        ms_levels = self.ms_levels
+
+        image_x_dimension = self.image_x_dimension
+        image_y_dimension = self.image_y_dimension
+        if image_x_dimension is not None:
+            pixel_size_x = self.image_x_dimension/max(s["coords"][0] for s in spectra)
+        else:
+            pixel_size_x = None
+        if image_y_dimension is not None:
+            pixel_size_y = self.image_y_dimension/max(s["coords"][1] for s in spectra)
+        else:
+            pixel_size_y = None
+        self.spectra = spectra
         self.xml.write(self.imzml_template.render(locals()))
 
     def _write_ibd(self, bytes):
@@ -507,7 +675,10 @@ class ImzMLWriter(object):
         self.lru_cache[mzs] = mz_data
         return mz_data
 
-    def addSpectrum(self, mzs, intensities, coords, mobilities=None, userParams=[]):
+# TODO: add support for ion activation information
+    def addSpectrum(self, mzs, intensities, coords, mobilities=None, precursor_mz = None, 
+                    scan_start_time = None, ms_level = None, filter_string = None, 
+                    isolation_window_offset = None, activation = None, userParams=[]):
         """
         Add a mass spectrum to the file.
 
@@ -523,6 +694,20 @@ class ImzMLWriter(object):
             * 3-tuple of x, y, and z position
 
             note some applications want coords to be 1-indexed
+
+        :param precursor_mz:
+            mz float
+        :param scan_start_time:
+            float
+        :param ms_level:
+            int
+        :param filter_string:
+            str
+        :param isolation_window_offset:
+            * float OR
+            * 2-tuple of (lower offset, upper offest) as floats
+        :param activation:
+            Not implemented
         """
         # must be rounded now to allow comparisons to later data
         # but don't waste CPU time in continuous mode since the data will not be used anyway
@@ -547,16 +732,42 @@ class ImzMLWriter(object):
         int_offset, int_len, int_enc_len = self._encode_and_write(intensities, self.intensity_dtype, self.intensity_compression)
         if self.include_mobility == True:
             mob_offset, mob_len, mob_enc_len = self._encode_and_write(mobilities, self.mobility_dtype, self.mobility_compression)
+        
         mz_min = np.min(mzs)
         mz_max = np.max(mzs)
         ix_max = np.argmax(intensities)
         mz_base = mzs[ix_max]
         int_base = intensities[ix_max]
         int_tic = np.sum(intensities)
+        
+        # Currently ms_level translates to MS1 for level==1 and MSn for any other level.
+        # TODO: add support for correct labelling of other scan types such as MRM.
+        if ms_level is None:
+            if precursor_mz:
+                ms_level = 2
+            else:
+                ms_level = 1
+        s = dict(coords=coords, mz_len=mz_len, mz_offset=mz_offset, mz_enc_len=mz_enc_len, 
+                 int_len=int_len, int_offset=int_offset, int_enc_len=int_enc_len, 
+                 mz_min=mz_min, mz_max=mz_max, mz_base=mz_base, 
+                 int_base=int_base, int_tic=int_tic,  activation=activation,
+                 scan_start_time=scan_start_time, ms_level=ms_level,
+                 filter_string=filter_string, userParams=userParams)
+        if precursor_mz:
+            if isolation_window_offset is None:
+                isolation_window_lower_offset, isolation_window_upper_offset = None, None
+            # if only one offset, use it for both lower and upper, otherwise assume it us lower and upper 
+            elif isolation_window_offset is not None:
+                try:
+                    isolation_window_lower_offset, isolation_window_upper_offset = isolation_window_offset
+                except TypeError:
+                    isolation_window_lower_offset, isolation_window_upper_offset = isolation_window_offset, isolation_window_offset
+            s.update(precursor_mz=precursor_mz,
+                            isolation_window_lower_offset=isolation_window_lower_offset,
+                            isolation_window_upper_offset=isolation_window_upper_offset)
         if self.include_mobility == True:
-            s = _Spectrum_Mobility(coords, mz_len, mz_offset, mz_enc_len, int_len, int_offset, int_enc_len, mob_len, mob_offset, mob_enc_len, mz_min, mz_max, mz_base, int_base, int_tic, userParams)
-        elif self.include_mobility == False:
-            s = _Spectrum(coords, mz_len, mz_offset, mz_enc_len, int_len, int_offset, int_enc_len, mz_min, mz_max, mz_base, int_base, int_tic, userParams)
+            s.update(mob_len=mob_len, mob_offset=mob_offset, mob_enc_len=mob_enc_len,
+                     mob_min=np.min(mobilities), mob_max=np.max(mobilities))
         self.spectra.append(s)
 
     def close(self):  # 'close' is a more common use for this
@@ -582,59 +793,59 @@ class ImzMLWriter(object):
             self.ibd.close()
             self.xml.close()
 
-def _main(argv):
-    from pyimzml.ImzMLParser import ImzMLParser
-    inputfile = ''
-    outputfile = ''
-    try:
-        opts, args = getopt.getopt(argv,"hi:o:",["ifile=","ofile="])
-    except getopt.GetoptError:
-        print('test.py -i <inputfile> -o <outputfile>')
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            print('test.py -i <inputfile> -o <outputfile>')
-            sys.exit()
-        elif opt in ("-i", "--ifile"):
-            inputfile = arg
-        elif opt in ("-o", "--ofile"):
-            outputfile = arg
-    if inputfile == '':
-        print('test.py -i <inputfile> -o <outputfile>')
-        raise IOError('input file not specified')
-    if outputfile=='':
-        outputfile=inputfile+'.imzML'
-    imzml = ImzMLParser(inputfile, include_mobility=False)
-    spectra = []
-    with ImzMLWriter(outputfile, mz_dtype=np.float32, intensity_dtype=np.float32, include_mobility=False) as writer:
-        for i, coords in enumerate(imzml.coordinates):
-            mzs, intensities = imzml.getspectrum(i)
-            writer.addSpectrum(mzs, intensities, coords)
-            spectra.append((mzs, intensities, coords))
+# def _main(argv):
+#     from pyimzml.ImzMLParser import ImzMLParser
+#     inputfile = ''
+#     outputfile = ''
+#     try:
+#         opts, args = getopt.getopt(argv,"hi:o:",["ifile=","ofile="])
+#     except getopt.GetoptError:
+#         print('test.py -i <inputfile> -o <outputfile>')
+#         sys.exit(2)
+#     for opt, arg in opts:
+#         if opt == '-h':
+#             print('test.py -i <inputfile> -o <outputfile>')
+#             sys.exit()
+#         elif opt in ("-i", "--ifile"):
+#             inputfile = arg
+#         elif opt in ("-o", "--ofile"):
+#             outputfile = arg
+#     if inputfile == '':
+#         print('test.py -i <inputfile> -o <outputfile>')
+#         raise IOError('input file not specified')
+#     if outputfile=='':
+#         outputfile=inputfile+'.imzML'
+#     imzml = ImzMLParser(inputfile, include_mobility=False)
+#     spectra = []
+#     with ImzMLWriter(outputfile, mz_dtype=np.float32, intensity_dtype=np.float32, include_mobility=False) as writer:
+#         for i, coords in enumerate(imzml.coordinates):
+#             mzs, intensities = imzml.getspectrum(i)
+#             writer.addSpectrum(mzs, intensities, coords)
+#             spectra.append((mzs, intensities, coords))
 
-    imzml = ImzMLParser(outputfile, include_mobility=False)
-    spectra2 = []
-    for i, coords in enumerate(imzml.coordinates):
-        mzs, intensities = imzml.getspectrum(i)
-        spectra2.append((mzs, intensities, coords))
+#     imzml = ImzMLParser(outputfile, include_mobility=False)
+#     spectra2 = []
+#     for i, coords in enumerate(imzml.coordinates):
+#         mzs, intensities = imzml.getspectrum(i)
+#         spectra2.append((mzs, intensities, coords))
 
-    print(spectra[0] == spectra2[0])
+#     print(spectra[0] == spectra2[0])
 
-    imzml = ImzMLParser(inputfile, include_mobility=True)
-    spectra = []
-    with ImzMLWriter(outputfile, mz_dtype=np.float32, intensity_dtype=np.float32, include_mobility=True) as writer:
-        for i, coords in enumerate(imzml.coordinates):
-            mzs, intensities, mobilities = imzml.getspectrum(i)
-            writer.addSpectrum(mzs, intensities, coords, mobilities=mobilities)
-            spectra.append((mzs, intensities, mobilities, coords))
+#     imzml = ImzMLParser(inputfile, include_mobility=True)
+#     spectra = []
+#     with ImzMLWriter(outputfile, mz_dtype=np.float32, intensity_dtype=np.float32, include_mobility=True) as writer:
+#         for i, coords in enumerate(imzml.coordinates):
+#             mzs, intensities, mobilities = imzml.getspectrum(i)
+#             writer.addSpectrum(mzs, intensities, coords, mobilities=mobilities)
+#             spectra.append((mzs, intensities, mobilities, coords))
 
-    imzml = ImzMLParser(outputfile, include_mobility=True)
-    spectra2 = []
-    for i, coords in enumerate(imzml.coordinates):
-        mzs, intensities, mobilities = imzml.getspectrum(i)
-        spectra2.append((mzs, intensities, mobilities, coords))
+#     imzml = ImzMLParser(outputfile, include_mobility=True)
+#     spectra2 = []
+#     for i, coords in enumerate(imzml.coordinates):
+#         mzs, intensities, mobilities = imzml.getspectrum(i)
+#         spectra2.append((mzs, intensities, mobilities, coords))
 
-    print(spectra[0] == spectra2[0])
+#     print(spectra[0] == spectra2[0])
 
-if __name__ == '__main__':
-    _main(sys.argv[1:])
+# if __name__ == '__main__':
+#     _main(sys.argv[1:])
