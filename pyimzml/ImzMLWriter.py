@@ -78,7 +78,7 @@ IMZML_TEMPLATE = """\
   </referenceableParamGroupList>
   <softwareList count="1">
     <software id="pyimzml" version="0.0001">
-      <cvParam cvRef="MS" accession="MS:1000799" name="custom unreleased software tool" value="pyimzml exporter"/>
+      <cvParam cvRef="MS" accession="MS:1000799" name="custom unreleased software tool" value=""/>
     </software>
   </softwareList>
   <scanSettingsList count="1">
@@ -106,7 +106,7 @@ IMZML_TEMPLATE = """\
   <dataProcessingList count="1">
     <dataProcessing id="export_from_pyimzml">
       <processingMethod order="0" softwareRef="pyimzml">
-        <cvParam cvRef="MS" accession="MS:1000530" name="file format conversion" value="Output to imzML"/>
+        <cvParam cvRef="IMS" accession="IMS:1000500" name="conversion to imzML"/>
       </processingMethod>
     </dataProcessing>
   </dataProcessingList>
@@ -128,19 +128,21 @@ IMZML_TEMPLATE = """\
         <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s["int_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
         <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s["int_tic"]!!s}"/>
         <scanList count="1">
-          <cvParam accession="MS:1000795" cvRef="MS" name="no combination"/>
-          <scan instrumentConfigurationRef="instrumentConfiguration0">
+          <cvParam cvRef="MS" accession="MS:1000795" name="no combination"/>
+          <scan instrumentConfigurationRef="IC1">
             <referenceableParamGroupRef ref="scan1"/>
-            <cvParam cvRef="MS" accession="IMS:1000016" name="scan start time" value="@{s["scan_start_time"]!!s}", unitCvRef="unit.ontology" unitAccession="UO:000031" unitName="minute"/>
+            @if s.get("scan_start_time") is not None:
+            <cvParam cvRef="MS" accession="MS:1000016" name="scan start time" value="@{s["scan_start_time"]!!s}" unitCvRef="unit.ontology" unitAccession="UO:000031" unitName="minute"/>
+            @end
             @if s.get("filter_string"):
             <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value="@{s["filter_string"]!!s}"/>
             @else:
             <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value=""/>
             @end
-            <cvParam accession="IMS:1000050" cvRef="IMS" name="position x" value="@{s["coords"][0]!!s}"/>
-            <cvParam accession="IMS:1000051" cvRef="IMS" name="position y" value="@{s["coords"][1]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000050" name="position x" value="@{s["coords"][0]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000051" name="position y" value="@{s["coords"][1]!!s}"/>
             @if len(s["coords"]) == 3:
-            <cvParam accession="IMS:1000052" cvRef="IMS" name="position z" value="@{s["coords"][2]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000052" name="position z" value="@{s["coords"][2]!!s}"/>
             @end
             @if s["userParams"]:
                 @for up in s["userParams"]:
@@ -182,17 +184,15 @@ IMZML_TEMPLATE = """\
         <binaryDataArrayList count="2">
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="mzArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["mz_len"]!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["mz_enc_len"]!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["mz_offset"]!!s}"/>
-            <binary/>
+            <cvParam cvRef="IMS" accession="IMS:1000103" name="external array length" value="@{s["mz_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000104" name="external encoded length" value="@{s["mz_enc_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000102" name="external offset" value="@{s["mz_offset"]!!s}"/>
           </binaryDataArray>
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="intensityArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["int_len"]!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["int_enc_len"]!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["int_offset"]!!s}"/>
-            <binary/>
+            <cvParam cvRef="IMS" accession="IMS:1000103" name="external array length" value="@{s["int_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000104" name="external encoded length" value="@{s["int_enc_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000102" name="external offset" value="@{s["int_offset"]!!s}"/>
           </binaryDataArray>
         </binaryDataArrayList>
       </spectrum>
@@ -269,7 +269,7 @@ IMZML_MOBILITY_TEMPLATE = """\
 
   <softwareList count="1">
     <software id="pyimzml" version="0.0001">
-      <cvParam cvRef="MS" accession="MS:1000799" name="custom unreleased software tool" value="pyimzml exporter"/>
+      <cvParam cvRef="MS" accession="MS:1000799" name="custom unreleased software tool" value=""/>
     </software>
   </softwareList>
 
@@ -300,7 +300,7 @@ IMZML_MOBILITY_TEMPLATE = """\
   <dataProcessingList count="1">
     <dataProcessing id="export_from_pyimzml">
       <processingMethod order="0" softwareRef="pyimzml">
-        <cvParam cvRef="MS" accession="MS:1000530" name="file format conversion" value="Output to imzML"/>
+        <cvParam cvRef="IMS" accession="IMS:1000500" name="conversion to imzML"/>
       </processingMethod>
     </dataProcessing>
   </dataProcessingList>
@@ -323,19 +323,21 @@ IMZML_MOBILITY_TEMPLATE = """\
         <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s["int_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
         <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s["int_tic"]!!s}"/>
         <scanList count="1">
-            <cvParam cvRef="MS" accession="IMS:1000016" name="scan start time" value="@{s["scan_start_time"]!!s}", unitCvRef="unit.ontology" unitAccession="UO:000031" unitName="minute"/>
+          <cvParam cvRef="MS" accession="MS:1000795" name="no combination"/>
+          <scan instrumentConfigurationRef="IC1">
+            <referenceableParamGroupRef ref="scan1"/>
+            @if s.get("scan_start_time") is not None:
+            <cvParam cvRef="MS" accession="MS:1000016" name="scan start time" value="@{s["scan_start_time"]!!s}" unitCvRef="unit.ontology" unitAccession="UO:000031" unitName="minute"/>
+            @end
             @if s.get("filter_string"):
             <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value="@{s["filter_string"]!!s}"/>
             @else:
             <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value=""/>
             @end
-          <cvParam accession="MS:1000795" cvRef="MS" name="no combination"/>
-          <scan instrumentConfigurationRef="instrumentConfiguration0">
-            <referenceableParamGroupRef ref="scan1"/>
-            <cvParam accession="IMS:1000050" cvRef="IMS" name="position x" value="@{s["coords"][0]!!s}"/>
-            <cvParam accession="IMS:1000051" cvRef="IMS" name="position y" value="@{s["coords"][1]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000050" name="position x" value="@{s["coords"][0]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000051" name="position y" value="@{s["coords"][1]!!s}"/>
             @if len(s["coords"]) == 3:
-            <cvParam accession="IMS:1000052" cvRef="IMS" name="position z" value="@{s["coords"][2]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000052" name="position z" value="@{s["coords"][2]!!s}"/>
             @end
             @if s["userParams"]:
                 @for up in s["userParams"]:
@@ -379,23 +381,23 @@ IMZML_MOBILITY_TEMPLATE = """\
         <binaryDataArrayList count="3">
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="mzArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["mz_len"]!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["mz_enc_len"]!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["mz_offset"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000103" name="external array length" value="@{s["mz_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000104" name="external encoded length" value="@{s["mz_enc_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000102" name="external offset" value="@{s["mz_offset"]!!s}"/>
             <binary/>
           </binaryDataArray>
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="intensityArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["int_len"]!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["int_enc_len"]!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["int_offset"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000103" name="external array length" value="@{s["int_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000104" name="external encoded length" value="@{s["int_enc_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000102" name="external offset" value="@{s["int_offset"]!!s}"/>
             <binary/>
           </binaryDataArray>
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="mobilityArray"/>
-            <cvParam accession="IMS:1000103" cvRef="IMS" name="external array length" value="@{s["mob_len"]!!s}"/>
-            <cvParam accession="IMS:1000104" cvRef="IMS" name="external encoded length" value="@{s["mob_enc_len"]!!s}"/>
-            <cvParam accession="IMS:1000102" cvRef="IMS" name="external offset" value="@{s["mob_offset"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000103" name="external array length" value="@{s["mob_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000104" name="external encoded length" value="@{s["mob_enc_len"]!!s}"/>
+            <cvParam cvRef="IMS" accession="IMS:1000102" name="external offset" value="@{s["mob_offset"]!!s}"/>
             <binary/>
           </binaryDataArray>
         </binaryDataArrayList>
