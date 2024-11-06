@@ -21,7 +21,7 @@ from wheezy.template import Engine, CoreExtension, DictLoader
 from pyimzml.compression import NoCompression, ZlibCompression
 
 IMZML_TEMPLATE = """\
-@require(uuid, sha1sum, mz_data_type, int_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y)
+@require(uuid, sha1sum, mz_data_type, int_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y, xml_element_strings)
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <mzML xmlns="http://psi.hupo.org/ms/mzml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://psi.hupo.org/ms/mzml http://psidev.info/files/ms/mzML/xsd/mzML1.1.0_idx.xsd" version="1.1">
   <cvList count="2">
@@ -34,7 +34,7 @@ IMZML_TEMPLATE = """\
       @if level==1:
       <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
       @else:
-      <cvParam cvRef="MS" accession="MS:1000579" name="MSn spectrum" value=""/>
+      <cvParam cvRef="MS" accession="MS:1000580" name="MSn spectrum" value=""/>
       @end
       @end
       @if spec_type=='centroid':
@@ -46,8 +46,22 @@ IMZML_TEMPLATE = """\
       <cvParam cvRef="IMS" accession="IMS:1000080" name="universally unique identifier" value="@uuid"/>
       <cvParam cvRef="IMS" accession="IMS:1000091" name="ibd SHA-1" value="@sha1sum"/>
     </fileContent>
+    @if xml_element_strings.get("source_file_list") is not None:
+    <sourceFileList count="@{xml_element_strings.get("software_list_count")!!s}">
+    @for source_file_string in xml_element_strings.get("source_file_list"):
+    @source_file_string
+    @end
+    </sourceFileList>
+    @end
   </fileDescription>
+  @if xml_element_strings.get("referenceable_param_group_list_element") is not None:
+  <referenceableParamGroupList count="5">
+  @for ref_param_string in xml_element_strings["referenceable_param_group_list_element"]:
+    @ref_param_string
+  @end
+  @else:
   <referenceableParamGroupList count="4">
+  @end
     <referenceableParamGroup id="mzArray">
       <cvParam cvRef="MS" accession="MS:@obo_codes[mz_compression]" name="@mz_compression" value=""/>
       <cvParam cvRef="MS" accession="MS:1000514" name="m/z array" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
@@ -76,7 +90,14 @@ IMZML_TEMPLATE = """\
       @end
     </referenceableParamGroup>
   </referenceableParamGroupList>
+  @if xml_element_strings.get("software_list_element") is None:
   <softwareList count="1">
+  @else:
+  <softwareList count="@{xml_element_strings.get("software_list_count")!!s}">
+  @for software_string in xml_element_strings["software_list_element"]:
+  @software_string
+  @end
+  @end
     <software id="pyimzml" version="0.0001">
       <cvParam cvRef="MS" accession="MS:1000799" name="custom unreleased software tool" value=""/>
     </software>
@@ -90,20 +111,33 @@ IMZML_TEMPLATE = """\
       <cvParam cvRef="IMS" accession="IMS:1000042" name="max count of pixels x" value="@{str(max(s["coords"][0] for s in spectra))!!s}"/>
       <cvParam cvRef="IMS" accession="IMS:1000043" name="max count of pixels y" value="@{str(max(s["coords"][1] for s in spectra))!!s}"/>
       @if image_x_dimension is not None:
-      <cvParam cvRef="IMS" accession="IMS:1000044" name="max dimension x" value="@{str(image_x_dimension)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
-      <cvParam cvRef="IMS" accession="IMS:1000046" name="pixel size x" value="@{str(pixel_size_x)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000044" name="max dimension x" value="@{str(image_x_dimension)!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000046" name="pixel size (x)" value="@{str(pixel_size_x)!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
       @end
       @if image_y_dimension is not None:
-      <cvParam cvRef="IMS" accession="IMS:1000045" name="max dimension y" value="@{str(image_y_dimension)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
-      <cvParam cvRef="IMS" accession="IMS:1000047" name="pixel size y" value="@{str(pixel_size_y)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000045" name="max dimension y" value="@{str(image_y_dimension)!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000047" name="pixel size y" value="@{str(pixel_size_y)!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
       @end
     </scanSettings>
   </scanSettingsList>
+  @if xml_element_strings.get("instrument_configuration_list_element") is None:
   <instrumentConfigurationList count="1">
     <instrumentConfiguration id="IC1">
     </instrumentConfiguration>
   </instrumentConfigurationList>
+  @else:
+  @for instrument_config in xml_element_strings["instrument_configuration_list_element"]:
+  @instrument_config
+  @end
+  @end
+  @if xml_element_strings.get("data_processing_list_element") is None:
   <dataProcessingList count="1">
+  @else:
+  <dataProcessingList count="@{xml_element_strings.get("data_processing_list_count")!!s}">
+  @for data_process in xml_element_strings.get("data_processing_list_element"):
+  @data_process
+  @end
+  @end
     <dataProcessing id="export_from_pyimzml">
       <processingMethod order="0" softwareRef="pyimzml">
         <cvParam cvRef="IMS" accession="IMS:1000500" name="conversion to imzML"/>
@@ -119,7 +153,7 @@ IMZML_TEMPLATE = """\
         <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
         <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="1"/>
         @elif s["ms_level"]!=1:
-        <cvParam cvRef="MS" accession="MS:1000579" name="MSn spectrum" value=""/>
+        <cvParam cvRef="MS" accession="MS:1000580" name="MSn spectrum" value=""/>
         <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="@{s["ms_level"]!!s}"/>
         @end
         <cvParam cvRef="MS" accession="MS:1000528" name="lowest observed m/z" value="@{s["mz_min"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
@@ -128,7 +162,7 @@ IMZML_TEMPLATE = """\
         <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s["int_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
         <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s["int_tic"]!!s}"/>
         <scanList count="1">
-          <cvParam cvRef="MS" accession="MS:1000795" name="no combination"/>
+          <cvParam cvRef="MS" accession="MS:1000795" name="no combination" value=""/>
           <scan instrumentConfigurationRef="IC1">
             <referenceableParamGroupRef ref="scan1"/>
             @if s.get("scan_start_time") is not None:
@@ -149,9 +183,16 @@ IMZML_TEMPLATE = """\
                 <userParam name="@up['name']" value="@up['value']"/> 
                 @end
             @end
+            <scanWindowList count="1">
+              <scanWindow>
+                <cvParam cvRef="MS" accession="MS:1000501" name="scan window lower limit" value="@{s["mass_window"][0]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+                <cvParam cvRef="MS" accession="MS:1000500" name="scan window upper limit" value="@{s["mass_window"][1]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              </scanWindow>
+            </scanWindowList>
           </scan>
         </scanList>
         @if s["ms_level"]>1:
+        @if s.get("precursor_element_string") is None:
         <precursorList count="1">
           <precursor>
             <isolationWindow>
@@ -180,6 +221,11 @@ IMZML_TEMPLATE = """\
             @end
           </precursor>
         </precursorList>
+        @else:
+        @for precursor_element_line in s["precursor_element_string"]:
+        @precursor_element_line
+        @end
+        @end
         @end
         <binaryDataArrayList count="2">
           <binaryDataArray encodedLength="0">
@@ -187,12 +233,14 @@ IMZML_TEMPLATE = """\
             <cvParam cvRef="IMS" accession="IMS:1000103" name="external array length" value="@{s["mz_len"]!!s}"/>
             <cvParam cvRef="IMS" accession="IMS:1000104" name="external encoded length" value="@{s["mz_enc_len"]!!s}"/>
             <cvParam cvRef="IMS" accession="IMS:1000102" name="external offset" value="@{s["mz_offset"]!!s}"/>
+            <binary/>
           </binaryDataArray>
           <binaryDataArray encodedLength="0">
             <referenceableParamGroupRef ref="intensityArray"/>
             <cvParam cvRef="IMS" accession="IMS:1000103" name="external array length" value="@{s["int_len"]!!s}"/>
             <cvParam cvRef="IMS" accession="IMS:1000104" name="external encoded length" value="@{s["int_enc_len"]!!s}"/>
             <cvParam cvRef="IMS" accession="IMS:1000102" name="external offset" value="@{s["int_offset"]!!s}"/>
+            <binary/>
           </binaryDataArray>
         </binaryDataArrayList>
       </spectrum>
@@ -203,7 +251,7 @@ IMZML_TEMPLATE = """\
 """
 
 IMZML_MOBILITY_TEMPLATE = """\
-@require(uuid, sha1sum, mz_data_type, int_data_type, mob_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, mob_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y, mobility_accession, mobility_unit, mobility_unit_accession)
+@require(uuid, sha1sum, mz_data_type, int_data_type, mob_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, mob_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y, mobility_accession, mobility_unit, mobility_unit_accession, xml_element_strings)
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <mzML xmlns="http://psi.hupo.org/ms/mzml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://psi.hupo.org/ms/mzml http://psidev.info/files/ms/mzML/xsd/mzML1.1.0_idx.xsd" version="1.1">
   <cvList count="2">
@@ -217,7 +265,7 @@ IMZML_MOBILITY_TEMPLATE = """\
       @if level==1:
       <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
       @else:
-      <cvParam cvRef="MS" accession="MS:1000579" name="MSn spectrum" value=""/>
+      <cvParam cvRef="MS" accession="MS:1000580" name="MSn spectrum" value=""/>
       @end
       @end
       @if spec_type=='centroid':
@@ -231,7 +279,14 @@ IMZML_MOBILITY_TEMPLATE = """\
     </fileContent>
   </fileDescription>
 
+  @if xml_element_strings.get("referenceable_param_group_list_element") is not None:
+  <referenceableParamGroupList count="6">
+  @for ref_param_string in xml_element_strings["referenceable_param_group_list_element"]:
+    @ref_param_string
+  @end
+  @else:
   <referenceableParamGroupList count="5">
+  @end
     <referenceableParamGroup id="mzArray">
       <cvParam cvRef="MS" accession="MS:@obo_codes[mz_compression]" name="@mz_compression" value=""/>
       <cvParam cvRef="MS" accession="MS:1000514" name="m/z array" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
@@ -267,7 +322,14 @@ IMZML_MOBILITY_TEMPLATE = """\
     </referenceableParamGroup>
   </referenceableParamGroupList>
 
+  @if xml_element_strings.get("software_list_element") is not None:
   <softwareList count="1">
+  @else:
+  <softwareList count="@{xml_element_strings.get("software_list_count")!!s}">
+  @for software_string in xml_element_strings["software_list_element"]:
+  @software_string
+  @end
+  @end
     <software id="pyimzml" version="0.0001">
       <cvParam cvRef="MS" accession="MS:1000799" name="custom unreleased software tool" value=""/>
     </software>
@@ -282,22 +344,34 @@ IMZML_MOBILITY_TEMPLATE = """\
       <cvParam cvRef="IMS" accession="IMS:1000042" name="max count of pixels x" value="@{str(max(s["coords"][0] for s in spectra))!!s}"/>
       <cvParam cvRef="IMS" accession="IMS:1000043" name="max count of pixels y" value="@{str(max(s["coords"][1] for s in spectra))!!s}"/>
       @if image_x_dimension is not None:
-      <cvParam cvRef="IMS" accession="IMS:1000044" name="max dimension x" value="@{str(image_x_dimension)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
-      <cvParam cvRef="IMS" accession="IMS:1000046" name="pixel size x" value="@{str(pixel_size_x)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000044" name="max dimension x" value="@{str(image_x_dimension)!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000046" name="pixel size (x)" value="@{str(pixel_size_x)!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
       @end
       @if image_y_dimension is not None:
-      <cvParam cvRef="IMS" accession="IMS:1000045" name="max dimension y" value="@{str(image_y_dimension)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
-      <cvParam cvRef="IMS" accession="IMS:1000047" name="pixel size y" value="@{str(pixel_size_y)}!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000045" name="max dimension y" value="@{str(image_y_dimension)!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
+      <cvParam cvRef="IMS" accession="IMS:1000047" name="pixel size y" value="@{str(pixel_size_y)!!s}" unitCvRef="UO" unitAccession="UO:0000017" unitName="micrometer"/>
       @end
     </scanSettings>
   </scanSettingsList>
 
+  @if xml_element_strings.get("instrument_configuration_list_element") is None:
   <instrumentConfigurationList count="1">
     <instrumentConfiguration id="IC1">
     </instrumentConfiguration>
   </instrumentConfigurationList>
-
+  @else:
+  @for instrument_config in xml_element_strings["instrument_configuration_list_element"]:
+  @instrument_config
+  @end
+  @end
+  @if xml_element_strings.get("data_processing_list_element") is None:
   <dataProcessingList count="1">
+  @else:
+  <dataProcessingList count="@{xml_element_strings.get("data_processing_list_count")!!s}">
+  @for data_process in xml_element_strings.get("data_processing_list_element"):
+  @data_process
+  @end
+  @end
     <dataProcessing id="export_from_pyimzml">
       <processingMethod order="0" softwareRef="pyimzml">
         <cvParam cvRef="IMS" accession="IMS:1000500" name="conversion to imzML"/>
@@ -314,7 +388,7 @@ IMZML_MOBILITY_TEMPLATE = """\
         <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
         <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="1"/>
         @elif s["ms_level"]!=1:
-        <cvParam cvRef="MS" accession="MS:1000579" name="MSn spectrum" value=""/>
+        <cvParam cvRef="MS" accession="MS:1000580" name="MSn spectrum" value=""/>
         <cvParam cvRef="MS" accession="MS:1000511" name="ms level" value="@{s["ms_level"]!!s}"/>
         @end
         <cvParam cvRef="MS" accession="MS:1000528" name="lowest observed m/z" value="@{s["mz_min"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
@@ -323,7 +397,7 @@ IMZML_MOBILITY_TEMPLATE = """\
         <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s["int_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
         <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s["int_tic"]!!s}"/>
         <scanList count="1">
-          <cvParam cvRef="MS" accession="MS:1000795" name="no combination"/>
+          <cvParam cvRef="MS" accession="MS:1000795" name="no combination value=""/>
           <scan instrumentConfigurationRef="IC1">
             <referenceableParamGroupRef ref="scan1"/>
             @if s.get("scan_start_time") is not None:
@@ -344,10 +418,17 @@ IMZML_MOBILITY_TEMPLATE = """\
                 <userParam name="@up['name']" value="@up['value']"/> 
                 @end
             @end
+            <scanWindowList count="1">
+              <scanWindow>
+                <cvParam cvRef="MS" accession="MS:1000501" name="scan window lower limit" value="@{s["mass_window"][0]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+                <cvParam cvRef="MS" accession="MS:1000500" name="scan window upper limit" value="@{s["mass_window"][1]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
+              </scanWindow>
+            </scanWindowList>
           </scan>
         </scanList>
 
         @if s["ms_level"]>1:
+        @if s.get("precursor_element_string") is None:
         <precursorList count="1">
           <precursor>
             <isolationWindow>
@@ -376,6 +457,11 @@ IMZML_MOBILITY_TEMPLATE = """\
             @end
           </precursor>
         </precursorList>
+        @else:
+        @for precursor_element_line in s["precursor_element_string"]:
+        @precursor_element_line
+        @end
+        @end
         @end
 
         <binaryDataArrayList count="3">
@@ -467,7 +553,7 @@ class ImzMLWriter(object):
                  spec_type="centroid",
                  scan_direction="top_down",
                  line_scan_direction="line_left_right",
-                 scan_pattern="one_way",
+                 scan_pattern="flyback",
                  scan_type="horizontal_line",
                  mz_compression=NoCompression(),
                  intensity_compression=NoCompression(),
@@ -476,7 +562,8 @@ class ImzMLWriter(object):
                  include_mobility=False,
                  mobility_info=None,
                  image_x_dimension = None,
-                 image_y_dimension = None):
+                 image_y_dimension = None,
+                 xml_element_strings = {}):
 
         # Whether to include ion mobility data.
         self.include_mobility = include_mobility
@@ -507,6 +594,7 @@ class ImzMLWriter(object):
         self.image_y_dimension = image_y_dimension
         self.pixel_size_x = None
         self.pixel_size_y = None
+        self.xml_element_strings = xml_element_strings
 
         self._write_ibd(self.uuid.bytes)
 
@@ -579,7 +667,7 @@ class ImzMLWriter(object):
                      "right_left": "1000403",
                      "top_down": "1000401",
                      "meandering": "1000410",
-                     "one_way": "1000411",
+                     "flyback": "1000413",
                      "random_access": "1000412",
                      "horizontal_line": "1000480",
                      "vertical_line": "1000481"}
@@ -592,7 +680,7 @@ class ImzMLWriter(object):
                      "right_left": "right left",
                      "top_down": "top down",
                      "meandering": "meandering",
-                     "one_way": "one way",
+                      "flyback": "flyback",
                      "random_access": "random access",
                      "horizontal_line": "horizontal line scan",
                      "vertical_line": "vertical line scan"}
@@ -632,6 +720,7 @@ class ImzMLWriter(object):
             pixel_size_y = self.image_y_dimension/max(s["coords"][1] for s in spectra)
         else:
             pixel_size_y = None
+        xml_element_strings = self.xml_element_strings
         self.spectra = spectra
         self.xml.write(self.imzml_template.render(locals()))
 
@@ -680,7 +769,8 @@ class ImzMLWriter(object):
 # TODO: add support for ion activation information
     def addSpectrum(self, mzs, intensities, coords, mobilities=None, precursor_mz = None, 
                     scan_start_time = None, ms_level = None, filter_string = None, 
-                    isolation_window_offset = None, activation = None, userParams=[]):
+                    isolation_window_offset = None, activation = None, mass_window = None,
+                    precursor_element_string = None, userParams=[]):
         """
         Add a mass spectrum to the file.
 
@@ -710,6 +800,8 @@ class ImzMLWriter(object):
             * 2-tuple of (lower offset, upper offest) as floats
         :param activation:
             Not implemented
+        :param mass_window:
+            The lower and upper m/z values of the scan window
         """
         # must be rounded now to allow comparisons to later data
         # but don't waste CPU time in continuous mode since the data will not be used anyway
@@ -742,6 +834,9 @@ class ImzMLWriter(object):
         int_base = intensities[ix_max]
         int_tic = np.sum(intensities)
         
+        if mass_window is None:
+            mass_window = (mz_min, mz_max)
+
         # Currently ms_level translates to MS1 for level==1 and MSn for any other level.
         # TODO: add support for correct labelling of other scan types such as MRM.
         if ms_level is None:
@@ -754,7 +849,7 @@ class ImzMLWriter(object):
                  mz_min=mz_min, mz_max=mz_max, mz_base=mz_base, 
                  int_base=int_base, int_tic=int_tic,  activation=activation,
                  scan_start_time=scan_start_time, ms_level=ms_level,
-                 filter_string=filter_string, userParams=userParams)
+                 filter_string=filter_string, mass_window=mass_window, userParams=userParams)
         if precursor_mz:
             if isolation_window_offset is None:
                 isolation_window_lower_offset, isolation_window_upper_offset = None, None
@@ -763,10 +858,11 @@ class ImzMLWriter(object):
                 try:
                     isolation_window_lower_offset, isolation_window_upper_offset = isolation_window_offset
                 except TypeError:
-                    isolation_window_lower_offset, isolation_window_upper_offset = isolation_window_offset, isolation_window_offset
+                    isolation_window_lower_offset, isolation_window_upper_offset = isolation_window_offset, isolation_window_offset            
             s.update(precursor_mz=precursor_mz,
-                            isolation_window_lower_offset=isolation_window_lower_offset,
-                            isolation_window_upper_offset=isolation_window_upper_offset)
+                    isolation_window_lower_offset=isolation_window_lower_offset,
+                    isolation_window_upper_offset=isolation_window_upper_offset,
+                    precursor_element_string=precursor_element_string)
         if self.include_mobility == True:
             s.update(mob_len=mob_len, mob_offset=mob_offset, mob_enc_len=mob_enc_len,
                      mob_min=np.min(mobilities), mob_max=np.max(mobilities))

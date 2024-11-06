@@ -406,15 +406,16 @@ class ImzMLParser:
         elif self.include_mobility == False:
             mz_bytes, intensity_bytes = self.get_spectrum_as_string(index)
         # TODO: Last pixel/frame seems to have incorrect byte sizes? unsure if pyimzML issue or TIMSCONVERT issue
-        if len(mz_bytes) == len(intensity_bytes):
-            mz_array = np.frombuffer(mz_bytes, dtype=self.mzPrecision)
-            intensity_array = np.frombuffer(intensity_bytes, dtype=self.intensityPrecision)
+        mz_array = np.frombuffer(mz_bytes, dtype=self.mzPrecision)
+        intensity_array = np.frombuffer(intensity_bytes, dtype=self.intensityPrecision)
+        if len(mz_array) == len(intensity_array):
             if self.include_mobility == True:
                 mobility_array = np.frombuffer(mobility_bytes, dtype=self.mobilityPrecision)
                 return mz_array, intensity_array, mobility_array
             elif self.include_mobility == False:
                 return mz_array, intensity_array
         else:
+            warn("Spectrum %d has different length for m/z and intensity arrays" % index)
             if self.include_mobility == True:
                 return np.zeros(1), np.zeros(1), np.zeros(1)
             elif self.include_mobility == False:
