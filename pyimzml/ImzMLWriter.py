@@ -1,8 +1,5 @@
 # TODO: Add a variable to the writer class that allows for saving scan/spectrum groups as referenceable param groups to avoid redundancy.
-# TODO: Ensure the scan/spectrum groups are properly referenced in scans/spectra.
-# TODO: Add support for MSn scans, including a precursorList containing isolation window and selected ion. For now, hardcode at one window/selected ion.
-# TODO: Add support for sourceFileList field containing file names, location, and format
-# TODO: add support for ion activation information
+# TODO: Add support for MSn scans, with multiple precursors. For now, hardcode at one window/selected ion.
 # TODO: add support for correct labelling of other scan types such as MRM.
 
 
@@ -397,7 +394,7 @@ IMZML_MOBILITY_TEMPLATE = """\
         <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s["int_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
         <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s["int_tic"]!!s}"/>
         <scanList count="1">
-          <cvParam cvRef="MS" accession="MS:1000795" name="no combination value=""/>
+          <cvParam cvRef="MS" accession="MS:1000795" name="no combination" value=""/>
           <scan instrumentConfigurationRef="IC1">
             <referenceableParamGroupRef ref="scan1"/>
             @if s.get("scan_start_time") is not None:
@@ -503,10 +500,6 @@ class _MaxlenDict(OrderedDict):
         if self.maxlen is not None and len(self) >= self.maxlen:
             self.popitem(0) #pop oldest
         OrderedDict.__setitem__(self, key, value)
-
-# _Spectrum = namedtuple('_Spectrum', 'coords mz_len mz_offset mz_enc_len int_len int_offset int_enc_len mz_min mz_max mz_base int_base int_tic userParams') #todo: change named tuple to dict and parse xml template properly (i.e. remove hardcoding so parameters can be optional)
-
-# _Spectrum_Mobility = namedtuple('_Spectrum_Mobility', 'coords mz_len mz_offset mz_enc_len int_len int_offset int_enc_len mob_len mob_offset mob_enc_len mz_min mz_max mz_base int_base int_tic userParams') #todo: change named tuple to dict and parse xml template properly (i.e. remove hardcoding so parameters can be optional)
 
 class ImzMLWriter(object):
     """
@@ -766,7 +759,6 @@ class ImzMLWriter(object):
         self.lru_cache[mzs] = mz_data
         return mz_data
 
-# TODO: add support for ion activation information
     def addSpectrum(self, mzs, intensities, coords, mobilities=None, precursor_mz = None, 
                     scan_start_time = None, ms_level = None, filter_string = None, 
                     isolation_window_offset = None, activation = None, mass_window = None,
