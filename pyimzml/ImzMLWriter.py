@@ -249,7 +249,7 @@ IMZML_TEMPLATE = """\
 """
 
 IMZML_MOBILITY_TEMPLATE = """\
-@require(uuid, sha1sum, mz_data_type, int_data_type, mob_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, mob_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y, mobility_accession, mobility_unit, mobility_unit_accession, xml_element_strings)
+@require(uuid, sha1sum, mz_data_type, int_data_type, mob_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, mob_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y, mobility_name, mobility_accession, mobility_unit, mobility_unit_accession, xml_element_strings)
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <mzML xmlns="http://psi.hupo.org/ms/mzml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://psi.hupo.org/ms/mzml http://psidev.info/files/ms/mzML/xsd/mzML1.1.0_idx.xsd" version="1.1">
   <cvList count="2">
@@ -300,7 +300,7 @@ IMZML_MOBILITY_TEMPLATE = """\
     </referenceableParamGroup>
     <referenceableParamGroup id="mobilityArray">
       <cvParam cvRef="MS" accession="MS:@obo_codes[mob_compression]" name="@mob_compression" value=""/>
-      <cvParam cvRef="MS" accession="@{str(mobility_accession)!!s}" name="mean inverse reduced ion mobility array" unitCvRef="MS" unitAccession="@{str(mobility_unit_accession)!!s}" unitName="@{str(mobility_unit)!!s}"/>
+      <cvParam cvRef="MS" accession="@{str(mobility_accession)!!s}" name="@{str(mobility_name)!!s}" unitCvRef="MS" unitAccession="@{str(mobility_unit_accession)!!s}" unitName="@{str(mobility_unit)!!s}"/>
       <cvParam cvRef="MS" accession="MS:@obo_codes[mob_data_type]" name="@mob_data_type" value=""/>
       <cvParam cvRef="IMS" accession="IMS:1000101" name="external data" value="true"/>
     </referenceableParamGroup>
@@ -643,7 +643,7 @@ class ImzMLWriter(object):
         int_data_type = self._np_type_to_name(self.intensity_dtype)
         if self.include_mobility == True:
             mob_data_type = self._np_type_to_name(self.mobility_dtype)
-            mobility_accession, mobility_unit, mobility_unit_accession = self.mobility_info
+            mobility_name, mobility_accession, mobility_unit, mobility_unit_accession = self.mobility_info
         obo_codes = {"32-bit integer": "1000519", 
                      "16-bit float": "1000520",
                      "32-bit float": "1000521",
