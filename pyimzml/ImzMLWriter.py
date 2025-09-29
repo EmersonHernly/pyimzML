@@ -45,7 +45,7 @@ IMZML_TEMPLATE = """\
       <cvParam cvRef="IMS" accession="IMS:1000091" name="ibd SHA-1" value="@sha1sum"/>
     </fileContent>
     @if xml_element_strings.get("source_file_list") is not None:
-    <sourceFileList count="@{xml_element_strings.get("software_list_count")!!s}">
+    <sourceFileList count="@{xml_element_strings.get("source_file_count")!!s}">
     @for source_file_string in xml_element_strings.get("source_file_list"):
     @source_file_string
     @end
@@ -276,6 +276,14 @@ IMZML_MOBILITY_TEMPLATE = """\
       <cvParam cvRef="IMS" accession="IMS:1000080" name="universally unique identifier" value="@uuid"/>
       <cvParam cvRef="IMS" accession="IMS:1000091" name="ibd SHA-1" value="@sha1sum"/>
     </fileContent>
+    @if xml_element_strings.get("source_file_list") is not None:
+    <sourceFileList count="@{xml_element_strings.get("source_file_count")!!s}">
+    @for source_file_string in xml_element_strings.get("source_file_list"):
+    @source_file_string
+    @end
+    </sourceFileList>
+    @end
+
   </fileDescription>
 
   @if xml_element_strings.get("referenceable_param_group_list_element") is not None:
