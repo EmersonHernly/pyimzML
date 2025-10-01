@@ -17,6 +17,8 @@ from wheezy.template import Engine, CoreExtension, DictLoader
 
 from pyimzml.compression import NoCompression, ZlibCompression
 
+
+# TODO: Add support for differing scan types, including SRM.
 IMZML_TEMPLATE = """\
 @require(uuid, sha1sum, mz_data_type, int_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y, xml_element_strings)
 <?xml version="1.0" encoding="ISO-8859-1"?>
@@ -248,6 +250,8 @@ IMZML_TEMPLATE = """\
 </mzML>
 """
 
+
+# TODO: provide more information about the mobility dimension, such as unit, name, accession.
 IMZML_MOBILITY_TEMPLATE = """\
 @require(uuid, sha1sum, mz_data_type, int_data_type, mob_data_type, run_id, spectra, mode, obo_codes, obo_names, mz_compression, int_compression, mob_compression, polarity, spec_type, scan_direction, scan_pattern, scan_type, line_scan_direction, ms_levels, image_x_dimension, image_y_dimension, pixel_size_x, pixel_size_y, mobility_name, mobility_accession, mobility_unit, mobility_unit_accession, xml_element_strings)
 <?xml version="1.0" encoding="ISO-8859-1"?>
@@ -403,6 +407,8 @@ IMZML_MOBILITY_TEMPLATE = """\
         <cvParam cvRef="MS" accession="MS:1000504" name="base peak m/z" value="@{s["mz_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000040" unitName="m/z"/>
         <cvParam cvRef="MS" accession="MS:1000505" name="base peak intensity" value="@{s["int_base"]!!s}" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of counts"/>
         <cvParam cvRef="MS" accession="MS:1000285" name="total ion current" value="@{s["int_tic"]!!s}"/>
+        <cvParam cvRef="MS" accession="MS:1003437" name="lowest observed ion mobility" value="@{s["mob_min"]!!s}" unitCvRef="MS" unitAccession="@{str(mobility_unit_accession)!!s}" unitName="@{str(mobility_unit)!!s}"/>
+        <cvParam cvRef="MS" accession="MS:1003438" name="highest observed ion mobility" value="@{s["mob_max"]!!s}" unitCvRef="MS" unitAccession="@{str(mobility_unit_accession)!!s}" unitName="@{str(mobility_unit)!!s}"/>
         <scanList count="1">
           <cvParam cvRef="MS" accession="MS:1000795" name="no combination" value=""/>
           <scan instrumentConfigurationRef="IC1">
@@ -683,7 +689,7 @@ class ImzMLWriter(object):
                      "right_left": "right left",
                      "top_down": "top down",
                      "meandering": "meandering",
-                      "flyback": "flyback",
+                     "flyback": "flyback",
                      "random_access": "random access",
                      "horizontal_line": "horizontal line scan",
                      "vertical_line": "vertical line scan"}
@@ -849,7 +855,7 @@ class ImzMLWriter(object):
         s = dict(coords=coords, mz_len=mz_len, mz_offset=mz_offset, mz_enc_len=mz_enc_len, 
                  int_len=int_len, int_offset=int_offset, int_enc_len=int_enc_len, 
                  mz_min=mz_min, mz_max=mz_max, mz_base=mz_base, 
-                 int_base=int_base, int_tic=int_tic,  activation=activation,
+                 int_base=int_base, int_tic=int_tic, activation=activation,
                  scan_start_time=scan_start_time, ms_level=ms_level,
                  filter_string=filter_string, mass_window=mass_window, userParams=userParams)
         if precursor_mz:
