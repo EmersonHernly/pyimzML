@@ -722,11 +722,17 @@ class ImzMLWriter(object):
         image_x_dimension = self.image_x_dimension
         image_y_dimension = self.image_y_dimension
         if image_x_dimension is not None:
-            pixel_size_x = self.image_x_dimension/max(s["coords"][0] for s in spectra)
+            if max(s["coords"][0] for s in spectra) == 1:
+                pixel_size_x = image_x_dimension
+            else:
+                pixel_size_x = self.image_x_dimension/(max(s["coords"][0] for s in spectra)-1)
         else:
             pixel_size_x = None
         if image_y_dimension is not None:
-            pixel_size_y = self.image_y_dimension/max(s["coords"][1] for s in spectra)
+            if max(s["coords"][1] for s in spectra) == 1:
+                pixel_size_y = image_y_dimension
+            else:
+                pixel_size_y = self.image_y_dimension/(max(s["coords"][1] for s in spectra)-1)
         else:
             pixel_size_y = None
         xml_element_strings = self.xml_element_strings
